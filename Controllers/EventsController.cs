@@ -22,8 +22,7 @@ namespace EventsApi.Controllers
         [HttpDelete("{id}")]
         public IActionResult DeleteEvent(Guid id)
         {
-            var evtDeleted = eventService.DeleteEvent(id);
-            if (!evtDeleted) return NotFound();
+            eventService.DeleteEvent(id);
 
             return NoContent();
         }
