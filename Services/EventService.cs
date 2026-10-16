@@ -8,13 +8,14 @@ namespace EventsApi.Services
 
         public Event CreateEvent(string title, string? description, DateTime startAt, DateTime endAt)
         {
-            Event evt = new Event();
-
-            evt.Id = Guid.NewGuid();
-            evt.Title = title;
-            evt.Description = description;
-            evt.StartAt = startAt;
-            evt.EndAt = endAt;
+            var evt = new Event
+            {
+                Id = Guid.NewGuid(),
+                Title = title,
+                Description = description,
+                StartAt = startAt,
+                EndAt = endAt
+            };
 
             _events.Add(evt);
 
