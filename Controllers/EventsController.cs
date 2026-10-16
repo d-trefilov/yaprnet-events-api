@@ -33,9 +33,12 @@ namespace EventsApi.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetEvents()
+        public IActionResult GetEvents(
+            [FromQuery] string? title, 
+            [FromQuery] DateTime? from, 
+            [FromQuery] DateTime? to)
         {
-            return Ok(eventService.GetEvents());
+            return Ok(eventService.GetEvents(title, from, to));
         }
 
         [HttpPut("{id}")]

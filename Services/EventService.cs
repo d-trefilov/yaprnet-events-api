@@ -1,5 +1,5 @@
-﻿using EventsApi.Models;
-using EventsApi.Exceptions;
+﻿using EventsApi.Exceptions;
+using EventsApi.Models;
 
 namespace EventsApi.Services
 {
@@ -42,9 +42,24 @@ namespace EventsApi.Services
             return evt;
         }
 
-        public List<Event> GetEvents()
+        public List<Event> GetEvents(string? title, DateTime? from, DateTime? to)
         {
-            return _events;
+            var filtered = _events.AsEnumerable();
+
+            if (title != null)
+            {
+                filtered = filtered.Where(ev => ev.Title.Contains(title, StringComparison.OrdinalIgnoreCase));
+            }
+            if (from != null)
+            {
+                filtered = filtered.Where(ev => ev.StartAt >= from);
+            }
+            if (to != null)
+            {
+                filtered = filtered.Where(ev => ev.EndAt <= to);
+            }
+
+            return filtered.ToList();
         }
 
         public Event UpdateEvent(Guid id, string title, string? description, DateTime startAt, DateTime endAt)
