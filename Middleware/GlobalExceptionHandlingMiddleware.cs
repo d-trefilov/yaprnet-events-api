@@ -1,5 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using EventsApi.Exceptions;
 
 namespace EventsApi.Middleware
 {
@@ -60,6 +60,7 @@ namespace EventsApi.Middleware
             => ex switch
             {
                 ValidationException ve => StatusCodes.Status400BadRequest,
+                NotFoundException nfe => StatusCodes.Status404NotFound,
                 _ => StatusCodes.Status500InternalServerError
             };
     }
