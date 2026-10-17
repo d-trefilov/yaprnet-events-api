@@ -1,4 +1,5 @@
-﻿using EventsApi.Models;
+﻿using EventsApi.Exceptions;
+using EventsApi.Models;
 using EventsApi.Services;
 
 namespace EventsApi.Tests;
@@ -166,6 +167,63 @@ public class EventServiceTests
             null,
             new DateTime(2026, 11, 1, 10, 0, 0),
             new DateTime(2026, 11, 1, 12, 0, 0));
+    }
+
+    [Fact]
+    public void GetEvent_NonExistingId_ThrowsNotFound()
+    {
+        // Arrange
+        var id = Guid.NewGuid();
+
+        // Act & Assert
+        var ex = Assert.Throws<NotFoundException>(() => _service.GetEvent(id));
+        Assert.Contains(id.ToString(), ex.Message);
+    }
+
+    [Fact]
+    public void UpdateEvent_NonExistingId_ThrowsNotFound()
+    {
+        // Arrange
+        var id = Guid.NewGuid();
+        var startAt = new DateTime(2026, 11, 1, 10, 0, 0);
+        var endAt = new DateTime(2026, 11, 1, 12, 0, 0);
+
+        // Act & Assert
+        Assert.Throws<NotFoundException>(
+            () => _service.UpdateEvent(id, "Title", null, startAt, endAt));
+    }
+
+    [Fact]
+    public void CreateEvent_EndBeforeStart_ThrowsValidation()
+    {
+        // Arrange
+        var startAt = new DateTime(2026, 11, 1, 12, 0, 0);
+        var endAt = new DateTime(2026, 11, 1, 10, 0, 0);
+
+        // Act & Assert
+        Assert.Throws<ValidationException>(
+            () => _service.CreateEvent("Title", null, startAt, endAt));
+    }
+
+    [Fact]
+    public void UpdateEvent_EndBeforeStart_ThrowsValidation()
+    {
+        // Arrange
+        var created = CreateEvent("C# meetup");
+        var startAt = new DateTime(2026, 11, 1, 12, 0, 0);
+        var endAt = new DateTime(2026, 11, 1, 10, 0, 0);
+
+        // Act & Assert
+        Assert.Throws<ValidationException>(
+            () => _service.UpdateEvent(created.Id, "C# meetup", null, startAt, endAt));
+    }
+
+    [Fact]
+    public void GetEvents_InvalidPage_ThrowsValidation()
+    {
+        // Act & Assert
+        Assert.Throws<ValidationException>(
+            () => _service.GetEvents(null, null, null, 0, 10));
     }
 
     private Event CreateEvent(string title, DateTime startAt, DateTime endAt)
