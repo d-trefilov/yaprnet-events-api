@@ -64,12 +64,12 @@ GET /events?title=c%23&from=2026-11-05
 GET /events?page=2&pageSize=2
 ```
 
-Пример ответа:
+Пример ответа на `GET /events?page=3&pageSize=2` (всего 5 событий):
 
 ```json
 {
   "totalCount": 5,
-  "events": [ { "id": "…", "title": "Event 3", "description": null, "startAt": "2026-11-03T10:00:00", "endAt": "2026-11-03T12:00:00" } ],
+  "events": [ { "id": "…", "title": "Event 5", "description": null, "startAt": "2026-11-05T10:00:00", "endAt": "2026-11-05T12:00:00" } ],
   "pageNumber": 3,
   "itemsOnPage": 1
 }
