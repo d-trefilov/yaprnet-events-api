@@ -42,8 +42,10 @@ namespace EventsApi.Services
             return evt;
         }
 
-        public List<Event> GetEvents(string? title, DateTime? from, DateTime? to)
+        public PaginatedResult<Event> GetEvents(string? title, DateTime? from, DateTime? to, int page, int pageSize)
         {
+            if (page < 1 || pageSize < 1)  throw new ValidationException("Поля page и pageSize не могут быть меньше 1"); 
+
             var filtered = _events.AsEnumerable();
 
             if (title != null)
@@ -58,8 +60,18 @@ namespace EventsApi.Services
             {
                 filtered = filtered.Where(ev => ev.EndAt <= to);
             }
+            
+            var totalCount = filtered.Count();
+            var items = filtered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
 
-            return filtered.ToList();
+            return new PaginatedResult<Event>
+            {
+                TotalCount = totalCount,
+                Events = items,
+                PageNumber = page,
+                ItemsOnPage = items.Count
+            };
+
         }
 
         public Event UpdateEvent(Guid id, string title, string? description, DateTime startAt, DateTime endAt)
