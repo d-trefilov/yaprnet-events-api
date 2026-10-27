@@ -10,4 +10,10 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="EventsApi.Tests\**" />
+    <Content Remove="EventsApi.Tests\**" />
+    <None Remove="EventsApi.Tests\**" />
+  </ItemGroup>
+
 </Project>

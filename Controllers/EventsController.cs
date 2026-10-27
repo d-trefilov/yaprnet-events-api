@@ -12,9 +12,6 @@ namespace EventsApi.Controllers
         [HttpPost]
         public IActionResult CreateEvent(Event evt)
         {
-            ValidateEvent(evt);
-            if (!ModelState.IsValid) return ValidationProblem(ModelState);
-
             var evtCreated = eventService.CreateEvent(evt.Title, evt.Description, evt.StartAt, evt.EndAt);
             return new CreatedResult($"/events/{evtCreated.Id}", evtCreated);
         }
@@ -22,8 +19,7 @@ namespace EventsApi.Controllers
         [HttpDelete("{id}")]
         public IActionResult DeleteEvent(Guid id)
         {
-            var evtDeleted = eventService.DeleteEvent(id);
-            if (!evtDeleted) return NotFound();
+            eventService.DeleteEvent(id);
 
             return NoContent();
         }
@@ -32,45 +28,27 @@ namespace EventsApi.Controllers
         public IActionResult GetEvent(Guid id)
         {
             var evt = eventService.GetEvent(id);
-            if (evt is null) return NotFound();
 
             return Ok(evt);
         }
 
         [HttpGet]
-        public IActionResult GetEvents()
+        public IActionResult GetEvents(
+            [FromQuery] string? title, 
+            [FromQuery] DateTime? from, 
+            [FromQuery] DateTime? to,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            return Ok(eventService.GetEvents());
+            return Ok(eventService.GetEvents(title, from, to, page, pageSize));
         }
 
         [HttpPut("{id}")]
         public IActionResult UpdateEvent(Guid id, Event evt)
         {
-            ValidateEvent(evt);
-            if (!ModelState.IsValid) return ValidationProblem(ModelState);
-
             var evtUpdated = eventService.UpdateEvent(id, evt.Title, evt.Description, evt.StartAt, evt.EndAt);
-            if (evtUpdated is null) return NotFound();
 
             return Ok(evtUpdated);
-        }
-
-        private void ValidateEvent(Event evt)
-        {
-            if (evt.StartAt == default)
-            {
-                ModelState.AddModelError(nameof(evt.StartAt), "Поле StartAt обязательно.");
-            }
-
-            if (evt.EndAt == default)
-            {
-                ModelState.AddModelError(nameof(evt.EndAt), "Поле EndAt обязательно.");
-            }
-
-            if (evt.EndAt <= evt.StartAt)
-            {
-                ModelState.AddModelError(nameof(evt.EndAt), "EndAt должен быть позже StartAt.");
-            }
         }
     }
 }
