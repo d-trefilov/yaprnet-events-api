@@ -226,6 +226,18 @@ public class EventServiceTests
             () => _service.GetEvents(null, null, null, 0, 10));
     }
 
+    [Fact]
+    public void CreateEvent_EmptyTitle_ThrowsValidation()
+    {
+        // Arrange
+        var startAt = new DateTime(2026, 11, 1, 10, 0, 0);
+        var endAt = new DateTime(2026, 11, 1, 12, 0, 0);
+
+        // Act & Assert
+        Assert.Throws<ValidationException>(
+            () => _service.CreateEvent("   ", null, startAt, endAt));
+    }
+
     private Event CreateEvent(string title, DateTime startAt, DateTime endAt)
     {
         return _service.CreateEvent(title, null, startAt, endAt);
