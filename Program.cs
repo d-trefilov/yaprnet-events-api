@@ -1,5 +1,6 @@
 using EventsApi.Middleware;
 using EventsApi.Services;
+using EventsApi.DataAccess;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +12,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddSingleton<IEventService, EventService>();
+builder.Services.AddSingleton<IBookingRepository, InMemoryBookingRepository>();
 
 var app = builder.Build();
 
