@@ -16,6 +16,10 @@ namespace EventsApi.DataAccess
         {
             return _bookings.TryGetValue(id, out var booking) ? booking : null;
         }
+        public void Update(Booking booking)
+        {
+            _bookings[booking.Id] = booking;
+        }
 
         public IReadOnlyList<Booking> GetPending()
         {

@@ -40,6 +40,7 @@ namespace EventsApi.Services
             try
             {
                 booking.Confirm();
+                bookingRepository.Update(booking);
                 logger.LogInformation("Бронь {BookingId} подтверждена", booking.Id);
             }
             catch (Exception ex)

@@ -7,5 +7,6 @@ namespace EventsApi.DataAccess
         void Add(Booking booking);
         Booking? GetById(Guid id);
         IReadOnlyList<Booking> GetPending();
+        void Update(Booking booking);
     }
 }
