@@ -7,13 +7,20 @@ namespace EventsApi.Controllers
 {
     [ApiController]
     [Route("events")]
-    public class EventsController(IEventService eventService) : ControllerBase
+    public class EventsController(IEventService eventService, IBookingService bookingService) : ControllerBase
     {
         [HttpPost]
         public IActionResult CreateEvent(Event evt)
         {
             var evtCreated = eventService.CreateEvent(evt.Title, evt.Description, evt.StartAt, evt.EndAt);
             return new CreatedResult($"/events/{evtCreated.Id}", evtCreated);
+        }
+
+        [HttpPost("{id}/book")]
+        public async Task<IActionResult> BookEvent(Guid id)
+        {
+            var booking = await bookingService.CreateBookingAsync(id);
+            return Accepted($"/bookings/{booking.Id}", booking);
         }
 
         [HttpDelete("{id}")]

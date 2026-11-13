@@ -10,7 +10,7 @@ namespace EventsApi.Services
         public Event CreateEvent(string title, string? description, DateTime startAt, DateTime endAt)
         {
             ValidateDates(startAt, endAt);
-
+            ValidateTitle(title);
 
             var evt = new Event
             {
@@ -77,6 +77,7 @@ namespace EventsApi.Services
         public Event UpdateEvent(Guid id, string title, string? description, DateTime startAt, DateTime endAt)
         {
             ValidateDates(startAt, endAt);
+            ValidateTitle(title);
 
             var evt = _events.FirstOrDefault(e => e.Id == id);
             if (evt is null) throw new NotFoundException($"Событие {id} не найдено");
@@ -94,6 +95,11 @@ namespace EventsApi.Services
             if (startAt == default) throw new ValidationException("Поле StartAt не заполнено.");
             if (endAt == default) throw new ValidationException("Поле EndAt не заполнено.");
             if (endAt <= startAt) throw new ValidationException("EndAt должен быть позже StartAt.");
+        }
+
+        private void ValidateTitle(string title)
+        {
+            if (string.IsNullOrWhiteSpace(title)) throw new ValidationException("Поле Title не заполнено.");
         }
     }
 }

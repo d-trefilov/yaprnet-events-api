@@ -47,10 +47,20 @@ namespace EventsApi.Middleware
             httpContext.Response.StatusCode = statusCode;
             httpContext.Response.ContentType = "application/json";
 
+            string detail;
+            if (statusCode == StatusCodes.Status500InternalServerError)
+            {
+                detail = "Внутренняя ошибка сервера";
+            }
+            else
+            {
+                detail = ex.Message;
+            }
+
             var error = new ProblemDetails
             {
                 Status = statusCode,
-                Detail = ex.Message
+                Detail = detail
             };
 
             await httpContext.Response.WriteAsJsonAsync(error);

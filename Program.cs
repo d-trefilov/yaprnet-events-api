@@ -1,16 +1,22 @@
 using EventsApi.Middleware;
 using EventsApi.Services;
+using EventsApi.DataAccess;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddSingleton<IEventService, EventService>();
+builder.Services.AddSingleton<IBookingRepository, InMemoryBookingRepository>();
+builder.Services.AddSingleton<IBookingService, BookingService>();
+builder.Services.AddHostedService<BookingProcessingService>();
 
 var app = builder.Build();
 
