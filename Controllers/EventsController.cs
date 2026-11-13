@@ -12,7 +12,7 @@ namespace EventsApi.Controllers
         [HttpPost]
         public IActionResult CreateEvent(Event evt)
         {
-            var evtCreated = eventService.CreateEvent(evt.Title, evt.Description, evt.StartAt, evt.EndAt);
+            var evtCreated = eventService.CreateEvent(evt.Title, evt.Description, evt.StartAt, evt.EndAt, evt.TotalSeats);
             return new CreatedResult($"/events/{evtCreated.Id}", evtCreated);
         }
 

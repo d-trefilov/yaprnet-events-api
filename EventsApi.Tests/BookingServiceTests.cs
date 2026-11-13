@@ -18,10 +18,10 @@ public class BookingServiceTests
         _service = new BookingService(_repository, _eventService);
     }
 
-    private Guid CreateEvent()
+    private Guid CreateEvent(int totalSeats = 10)
     {
         var evt = _eventService.CreateEvent(
-            "Концерт", null, new DateTime(2026, 12, 1, 10, 0, 0), new DateTime(2026, 12, 1, 12, 0, 0));
+            "Концерт", null, new DateTime(2026, 12, 1, 10, 0, 0), new DateTime(2026, 12, 1, 12, 0, 0), totalSeats);
         return evt.Id;
     }
 
