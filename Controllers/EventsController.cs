@@ -1,4 +1,5 @@
-﻿using EventsApi.Models;
+﻿using EventsApi.Dto;
+using EventsApi.Models;
 using EventsApi.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -17,6 +18,9 @@ namespace EventsApi.Controllers
         }
 
         [HttpPost("{id}/book")]
+        [ProducesResponseType(typeof(BookingInfo), StatusCodes.Status202Accepted)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
         public async Task<IActionResult> BookEvent(Guid id)
         {
             var booking = await bookingService.CreateBookingAsync(id);

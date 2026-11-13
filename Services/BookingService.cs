@@ -7,13 +7,22 @@ namespace EventsApi.Services
 {
     public class BookingService(IBookingRepository bookingRepository, IEventService eventService) : IBookingService
     {
+        private readonly object _bookingLock = new();
+
         public Task<BookingInfo> CreateBookingAsync(Guid eventId)
         {
-            // Результат не нужен: GetEvent бросит NotFoundException, если события нет
-            eventService.GetEvent(eventId);
+            Booking booking;
 
-            var booking = Booking.CreatePending(eventId);
-            bookingRepository.Add(booking);
+            lock (_bookingLock)
+            {
+                var evt = eventService.GetEvent(eventId);
+
+                if (!evt.TryReserveSeats())
+                    throw new NoAvailableSeatsException("No available seats for this event");
+
+                booking = Booking.CreatePending(eventId);
+                bookingRepository.Add(booking);
+            }
 
             return Task.FromResult(BookingInfo.FromBooking(booking));
         }
