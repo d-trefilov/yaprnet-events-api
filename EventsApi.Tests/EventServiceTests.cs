@@ -1,20 +1,32 @@
-﻿using EventsApi.Exceptions;
+using EventsApi.DataAccess;
+using EventsApi.Exceptions;
 using EventsApi.Models;
 using EventsApi.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace EventsApi.Tests;
 
-public class EventServiceTests
+public class EventServiceTests : IDisposable
 {
-    private readonly EventService _service;
+    private readonly AppDbContext _context;
+    private readonly IEventService _service;
 
     public EventServiceTests()
     {
-        _service = new EventService();
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        _context = new AppDbContext(options);
+        _service = new EventService(_context);
+    }
+
+    public void Dispose()
+    {
+        _context.Dispose();
     }
 
     [Fact]
-    public void CreateEvent_ValidData_ReturnsCreatedEvent()
+    public async Task CreateEvent_ValidData_ReturnsCreatedEvent()
     {
         // Arrange
         var title = "C# meetup";
@@ -22,7 +34,7 @@ public class EventServiceTests
         var endAt = new DateTime(2026, 11, 1, 12, 0, 0);
 
         // Act
-        var created = _service.CreateEvent(title, null, startAt, endAt, 10);
+        var created = await _service.CreateEventAsync(title, null, startAt, endAt, 10);
 
         // Assert
         Assert.NotEqual(Guid.Empty, created.Id);
@@ -31,19 +43,19 @@ public class EventServiceTests
         Assert.Equal(endAt, created.EndAt);
         Assert.Equal(10, created.TotalSeats);       // новое
         Assert.Equal(10, created.AvailableSeats);   // новое
-        Assert.Same(created, _service.GetEvent(created.Id));
+        Assert.Equal(created.Id, (await _service.GetEventAsync(created.Id)).Id);
     }
 
     [Fact]
-    public void GetEvents_NoFilters_ReturnsAllEvents()
+    public async Task GetEvents_NoFilters_ReturnsAllEvents()
     {
         // Arrange
-        CreateEvent("Event 1");
-        CreateEvent("Event 2");
-        CreateEvent("Event 3");
+        await CreateEvent("Event 1");
+        await CreateEvent("Event 2");
+        await CreateEvent("Event 3");
 
         // Act
-        var result = _service.GetEvents(null, null, null, 1, 10);
+        var result = await _service.GetEventsAsync(null, null, null, 1, 10);
 
         // Assert
         Assert.Equal(3, result.TotalCount);
@@ -51,31 +63,32 @@ public class EventServiceTests
     }
 
     [Fact]
-    public void GetEvent_ExistingId_ReturnsEvent()
+    public async Task GetEvent_ExistingId_ReturnsEvent()
     {
         // Arrange
-        var created = CreateEvent("C# meetup");
+        var created = await CreateEvent("C# meetup");
 
         // Act
-        var found = _service.GetEvent(created.Id);
+        var found = await _service.GetEventAsync(created.Id);
 
         // Assert
-        Assert.Same(created, found);
+        Assert.Equal(created.Id, found.Id);
+        Assert.Equal(created.Title, found.Title);
     }
 
     [Fact]
-    public void UpdateEvent_ExistingId_UpdatesFields()
+    public async Task UpdateEvent_ExistingId_UpdatesFields()
     {
         // Arrange
-        var created = CreateEvent("Old title");
+        var created = await CreateEvent("Old title");
         var newStart = new DateTime(2026, 12, 1, 9, 0, 0);
         var newEnd = new DateTime(2026, 12, 1, 18, 0, 0);
 
         // Act
-        _service.UpdateEvent(created.Id, "New title", "Description", newStart, newEnd);
+        await _service.UpdateEventAsync(created.Id, "New title", "Description", newStart, newEnd);
 
         // Assert
-        var updated = _service.GetEvent(created.Id);
+        var updated = await _service.GetEventAsync(created.Id);
         Assert.Equal("New title", updated.Title);
         Assert.Equal("Description", updated.Description);
         Assert.Equal(newStart, updated.StartAt);
@@ -83,27 +96,27 @@ public class EventServiceTests
     }
 
     [Fact]
-    public void DeleteEvent_ExistingId_RemovesEvent()
+    public async Task DeleteEvent_ExistingId_RemovesEvent()
     {
         // Arrange
-        var created = CreateEvent("To delete");
+        var created = await CreateEvent("To delete");
 
         // Act
-        _service.DeleteEvent(created.Id);
+        await _service.DeleteEventAsync(created.Id);
 
         // Assert
-        var result = _service.GetEvents(null, null, null, 1, 10);
+        var result = await _service.GetEventsAsync(null, null, null, 1, 10);
         Assert.Equal(0, result.TotalCount);
     }
 
     [Fact]
-    public void GetEvents_TitleFilter_ReturnsMatchingIgnoringCase()
+    public async Task GetEvents_TitleFilter_ReturnsMatchingIgnoringCase()
     {
         // Arrange
-        SeedThreeEvents();
+        await SeedThreeEvents();
 
         // Act
-        var result = _service.GetEvents("c#", null, null, 1, 10);
+        var result = await _service.GetEventsAsync("c#", null, null, 1, 10);
 
         // Assert
         var titles = result.Events.Select(e => e.Title).ToList();
@@ -113,15 +126,15 @@ public class EventServiceTests
     }
 
     [Fact]
-    public void GetEvents_DateFilter_ReturnsEventsInRange()
+    public async Task GetEvents_DateFilter_ReturnsEventsInRange()
     {
         // Arrange
-        SeedThreeEvents();
+        await SeedThreeEvents();
         var from = new DateTime(2026, 11, 5);
         var to = new DateTime(2026, 11, 30);
 
         // Act
-        var result = _service.GetEvents(null, from, to, 1, 10);
+        var result = await _service.GetEventsAsync(null, from, to, 1, 10);
 
         // Assert
         var single = Assert.Single(result.Events);
@@ -129,16 +142,16 @@ public class EventServiceTests
     }
 
     [Fact]
-    public void GetEvents_Pagination_ReturnsRequestedPage()
+    public async Task GetEvents_Pagination_ReturnsRequestedPage()
     {
         // Arrange
         for (var i = 1; i <= 5; i++)
         {
-            CreateEvent($"Event {i}");
+            await CreateEvent($"Event {i}");
         }
 
         // Act
-        var result = _service.GetEvents(null, null, null, 2, 2);
+        var result = await _service.GetEventsAsync(null, null, null, 2, 2);
 
         // Assert
         Assert.Equal(5, result.TotalCount);
@@ -148,23 +161,23 @@ public class EventServiceTests
     }
 
     [Fact]
-    public void GetEvents_CombinedFilters_ReturnsIntersection()
+    public async Task GetEvents_CombinedFilters_ReturnsIntersection()
     {
         // Arrange
-        SeedThreeEvents();
+        await SeedThreeEvents();
         var from = new DateTime(2026, 11, 5);
 
         // Act
-        var result = _service.GetEvents("c#", from, null, 1, 10);
+        var result = await _service.GetEventsAsync("c#", from, null, 1, 10);
 
         // Assert
         var single = Assert.Single(result.Events);
         Assert.Equal("Advanced C#", single.Title);
     }
 
-    private Event CreateEvent(string title)
+    private Task<Event> CreateEvent(string title)
     {
-        return _service.CreateEvent(
+        return _service.CreateEventAsync(
             title,
             null,
             new DateTime(2026, 11, 1, 10, 0, 0),
@@ -173,18 +186,18 @@ public class EventServiceTests
     }
 
     [Fact]
-    public void GetEvent_NonExistingId_ThrowsNotFound()
+    public async Task GetEvent_NonExistingId_ThrowsNotFound()
     {
         // Arrange
         var id = Guid.NewGuid();
 
         // Act & Assert
-        var ex = Assert.Throws<NotFoundException>(() => _service.GetEvent(id));
+        var ex = await Assert.ThrowsAsync<NotFoundException>(() => _service.GetEventAsync(id));
         Assert.Contains(id.ToString(), ex.Message);
     }
 
     [Fact]
-    public void UpdateEvent_NonExistingId_ThrowsNotFound()
+    public async Task UpdateEvent_NonExistingId_ThrowsNotFound()
     {
         // Arrange
         var id = Guid.NewGuid();
@@ -192,77 +205,77 @@ public class EventServiceTests
         var endAt = new DateTime(2026, 11, 1, 12, 0, 0);
 
         // Act & Assert
-        Assert.Throws<NotFoundException>(
-            () => _service.UpdateEvent(id, "Title", null, startAt, endAt));
+        await Assert.ThrowsAsync<NotFoundException>(
+            () => _service.UpdateEventAsync(id, "Title", null, startAt, endAt));
     }
 
     [Fact]
-    public void CreateEvent_EndBeforeStart_ThrowsValidation()
+    public async Task CreateEvent_EndBeforeStart_ThrowsValidation()
     {
         // Arrange
         var startAt = new DateTime(2026, 11, 1, 12, 0, 0);
         var endAt = new DateTime(2026, 11, 1, 10, 0, 0);
 
         // Act & Assert
-        Assert.Throws<ValidationException>(
-            () => _service.CreateEvent("Title", null, startAt, endAt, 10));
+        await Assert.ThrowsAsync<ValidationException>(
+            () => _service.CreateEventAsync("Title", null, startAt, endAt, 10));
     }
 
     [Fact]
-    public void UpdateEvent_EndBeforeStart_ThrowsValidation()
+    public async Task UpdateEvent_EndBeforeStart_ThrowsValidation()
     {
         // Arrange
-        var created = CreateEvent("C# meetup");
+        var created = await CreateEvent("C# meetup");
         var startAt = new DateTime(2026, 11, 1, 12, 0, 0);
         var endAt = new DateTime(2026, 11, 1, 10, 0, 0);
 
         // Act & Assert
-        Assert.Throws<ValidationException>(
-            () => _service.UpdateEvent(created.Id, "C# meetup", null, startAt, endAt));
+        await Assert.ThrowsAsync<ValidationException>(
+            () => _service.UpdateEventAsync(created.Id, "C# meetup", null, startAt, endAt));
     }
 
     [Fact]
-    public void GetEvents_InvalidPage_ThrowsValidation()
+    public async Task GetEvents_InvalidPage_ThrowsValidation()
     {
         // Act & Assert
-        Assert.Throws<ValidationException>(
-            () => _service.GetEvents(null, null, null, 0, 10));
+        await Assert.ThrowsAsync<ValidationException>(
+            () => _service.GetEventsAsync(null, null, null, 0, 10));
     }
 
     [Fact]
-    public void CreateEvent_EmptyTitle_ThrowsValidation()
+    public async Task CreateEvent_EmptyTitle_ThrowsValidation()
     {
         // Arrange
         var startAt = new DateTime(2026, 11, 1, 10, 0, 0);
         var endAt = new DateTime(2026, 11, 1, 12, 0, 0);
 
         // Act & Assert
-        Assert.Throws<ValidationException>(
-            () => _service.CreateEvent("   ", null, startAt, endAt, 10));
+        await Assert.ThrowsAsync<ValidationException>(
+            () => _service.CreateEventAsync("   ", null, startAt, endAt, 10));
     }
 
     // новое
     [Fact]
-    public void CreateEvent_ZeroSeats_ThrowsValidation()
+    public async Task CreateEvent_ZeroSeats_ThrowsValidation()
     {
         // Arrange
         var startAt = new DateTime(2026, 11, 1, 10, 0, 0);
         var endAt = new DateTime(2026, 11, 1, 12, 0, 0);
 
         // Act & Assert
-        Assert.Throws<ValidationException>(
-            () => _service.CreateEvent("Title", null, startAt, endAt, 0));
+        await Assert.ThrowsAsync<ValidationException>(
+            () => _service.CreateEventAsync("Title", null, startAt, endAt, 0));
     }
 
-    private Event CreateEvent(string title, DateTime startAt, DateTime endAt)
+    private Task<Event> CreateEvent(string title, DateTime startAt, DateTime endAt)
     {
-        return _service.CreateEvent(title, null, startAt, endAt, 10);
+        return _service.CreateEventAsync(title, null, startAt, endAt, 10);
     }
 
-    private void SeedThreeEvents()
+    private async Task SeedThreeEvents()
     {
-        CreateEvent("C# meetup", new DateTime(2026, 11, 1, 10, 0, 0), new DateTime(2026, 11, 1, 12, 0, 0));
-        CreateEvent("Kotlin day", new DateTime(2026, 11, 10, 10, 0, 0), new DateTime(2026, 11, 10, 18, 0, 0));
-        CreateEvent("Advanced C#", new DateTime(2026, 12, 5, 9, 0, 0), new DateTime(2026, 12, 6, 18, 0, 0));
+        await CreateEvent("C# meetup", new DateTime(2026, 11, 1, 10, 0, 0), new DateTime(2026, 11, 1, 12, 0, 0));
+        await CreateEvent("Kotlin day", new DateTime(2026, 11, 10, 10, 0, 0), new DateTime(2026, 11, 10, 18, 0, 0));
+        await CreateEvent("Advanced C#", new DateTime(2026, 12, 5, 9, 0, 0), new DateTime(2026, 12, 6, 18, 0, 0));
     }
 }

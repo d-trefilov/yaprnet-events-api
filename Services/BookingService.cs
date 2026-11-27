@@ -1,38 +1,42 @@
-﻿using EventsApi.DataAccess;
+using EventsApi.DataAccess;
 using EventsApi.Dto;
 using EventsApi.Exceptions;
 using EventsApi.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace EventsApi.Services
 {
-    public class BookingService(IBookingRepository bookingRepository, IEventService eventService) : IBookingService
+    public class BookingService(AppDbContext context) : IBookingService
     {
-        private readonly object _bookingLock = new();
+        internal static readonly SemaphoreSlim BookingSemaphore = new(1, 1);
 
-        public Task<BookingInfo> CreateBookingAsync(Guid eventId)
+        public async Task<BookingInfo> CreateBookingAsync(Guid eventId, CancellationToken cancellationToken = default)
         {
-            Booking booking;
-
-            lock (_bookingLock)
+            await BookingSemaphore.WaitAsync(cancellationToken);
+            try
             {
-                var evt = eventService.GetEvent(eventId);
-
+                var evt = await EventService.FindEventAsync(context.Events, eventId, cancellationToken);
                 if (!evt.TryReserveSeats())
                     throw new NoAvailableSeatsException("No available seats for this event");
 
-                booking = Booking.CreatePending(eventId);
-                bookingRepository.Add(booking);
+                var booking = Booking.CreatePending(eventId);
+                context.Bookings.Add(booking);
+                await context.SaveChangesAsync(cancellationToken);
+                return BookingInfo.FromBooking(booking);
             }
-
-            return Task.FromResult(BookingInfo.FromBooking(booking));
+            finally
+            {
+                BookingSemaphore.Release();
+            }
         }
 
-        public Task<BookingInfo> GetBookingByIdAsync(Guid bookingId)
+        public async Task<BookingInfo> GetBookingByIdAsync(Guid bookingId, CancellationToken cancellationToken = default)
         {
-            var booking = bookingRepository.GetById(bookingId);
+            var booking = await context.Bookings.AsNoTracking()
+                .SingleOrDefaultAsync(booking => booking.Id == bookingId, cancellationToken);
             if (booking is null) throw new NotFoundException($"Бронь {bookingId} не найдена");
 
-            return Task.FromResult(BookingInfo.FromBooking(booking));
+            return BookingInfo.FromBooking(booking);
         }
     }
 }
