@@ -71,6 +71,7 @@ namespace EventsApi.Middleware
             {
                 ValidationException ve => StatusCodes.Status400BadRequest,
                 NotFoundException nfe => StatusCodes.Status404NotFound,
+                NoAvailableSeatsException => StatusCodes.Status409Conflict,   // новое
                 _ => StatusCodes.Status500InternalServerError
             };
     }

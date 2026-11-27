@@ -22,13 +22,15 @@ public class EventServiceTests
         var endAt = new DateTime(2026, 11, 1, 12, 0, 0);
 
         // Act
-        var created = _service.CreateEvent(title, null, startAt, endAt);
+        var created = _service.CreateEvent(title, null, startAt, endAt, 10);
 
         // Assert
         Assert.NotEqual(Guid.Empty, created.Id);
         Assert.Equal(title, created.Title);
         Assert.Equal(startAt, created.StartAt);
         Assert.Equal(endAt, created.EndAt);
+        Assert.Equal(10, created.TotalSeats);       // новое
+        Assert.Equal(10, created.AvailableSeats);   // новое
         Assert.Same(created, _service.GetEvent(created.Id));
     }
 
@@ -166,7 +168,8 @@ public class EventServiceTests
             title,
             null,
             new DateTime(2026, 11, 1, 10, 0, 0),
-            new DateTime(2026, 11, 1, 12, 0, 0));
+            new DateTime(2026, 11, 1, 12, 0, 0),
+            10);
     }
 
     [Fact]
@@ -202,7 +205,7 @@ public class EventServiceTests
 
         // Act & Assert
         Assert.Throws<ValidationException>(
-            () => _service.CreateEvent("Title", null, startAt, endAt));
+            () => _service.CreateEvent("Title", null, startAt, endAt, 10));
     }
 
     [Fact]
@@ -235,12 +238,25 @@ public class EventServiceTests
 
         // Act & Assert
         Assert.Throws<ValidationException>(
-            () => _service.CreateEvent("   ", null, startAt, endAt));
+            () => _service.CreateEvent("   ", null, startAt, endAt, 10));
+    }
+
+    // новое
+    [Fact]
+    public void CreateEvent_ZeroSeats_ThrowsValidation()
+    {
+        // Arrange
+        var startAt = new DateTime(2026, 11, 1, 10, 0, 0);
+        var endAt = new DateTime(2026, 11, 1, 12, 0, 0);
+
+        // Act & Assert
+        Assert.Throws<ValidationException>(
+            () => _service.CreateEvent("Title", null, startAt, endAt, 0));
     }
 
     private Event CreateEvent(string title, DateTime startAt, DateTime endAt)
     {
-        return _service.CreateEvent(title, null, startAt, endAt);
+        return _service.CreateEvent(title, null, startAt, endAt, 10);
     }
 
     private void SeedThreeEvents()

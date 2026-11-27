@@ -1,4 +1,5 @@
-﻿using EventsApi.Models;
+﻿using EventsApi.Dto;
+using EventsApi.Models;
 using EventsApi.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -12,11 +13,14 @@ namespace EventsApi.Controllers
         [HttpPost]
         public IActionResult CreateEvent(Event evt)
         {
-            var evtCreated = eventService.CreateEvent(evt.Title, evt.Description, evt.StartAt, evt.EndAt);
+            var evtCreated = eventService.CreateEvent(evt.Title, evt.Description, evt.StartAt, evt.EndAt, evt.TotalSeats);
             return new CreatedResult($"/events/{evtCreated.Id}", evtCreated);
         }
 
         [HttpPost("{id}/book")]
+        [ProducesResponseType(typeof(BookingInfo), StatusCodes.Status202Accepted)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
         public async Task<IActionResult> BookEvent(Guid id)
         {
             var booking = await bookingService.CreateBookingAsync(id);

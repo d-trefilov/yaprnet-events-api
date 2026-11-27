@@ -7,10 +7,11 @@ namespace EventsApi.Services
     {
         private List<Event> _events = new List<Event>();
 
-        public Event CreateEvent(string title, string? description, DateTime startAt, DateTime endAt)
+        public Event CreateEvent(string title, string? description, DateTime startAt, DateTime endAt, int totalSeats)
         {
             ValidateDates(startAt, endAt);
             ValidateTitle(title);
+            ValidateTotalSeats(totalSeats);
 
             var evt = new Event
             {
@@ -18,7 +19,9 @@ namespace EventsApi.Services
                 Title = title,
                 Description = description,
                 StartAt = startAt,
-                EndAt = endAt
+                EndAt = endAt,
+                TotalSeats = totalSeats,
+                AvailableSeats = totalSeats
             };
 
             _events.Add(evt);
@@ -100,6 +103,11 @@ namespace EventsApi.Services
         private void ValidateTitle(string title)
         {
             if (string.IsNullOrWhiteSpace(title)) throw new ValidationException("Поле Title не заполнено.");
+        }
+
+        private void ValidateTotalSeats(int totalSeats)
+        {
+            if (totalSeats <= 0) throw new ValidationException("Поле TotalSeats должно быть больше нуля.");
         }
     }
 }
