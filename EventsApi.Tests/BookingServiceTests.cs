@@ -1,28 +1,46 @@
-﻿using EventsApi.DataAccess;
+using EventsApi.DataAccess;
 using EventsApi.Exceptions;
 using EventsApi.Models;
 using EventsApi.Services;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EventsApi.Tests;
 
-public class BookingServiceTests
+public class BookingServiceTests : IDisposable
 {
-    private readonly EventService _eventService;
-    private readonly InMemoryBookingRepository _repository;
-    private readonly BookingService _service;
+    private readonly ServiceProvider _provider = TestServices.Create();
+    private readonly IServiceScope _scope;
+    private readonly IEventService _eventService;
+    private readonly IBookingService _service;
+    private readonly AppDbContext _context;
 
     public BookingServiceTests()
     {
-        _eventService = new EventService();
-        _repository = new InMemoryBookingRepository();
-        _service = new BookingService(_repository, _eventService);
+        _scope = _provider.CreateScope();
+        _eventService = _scope.ServiceProvider.GetRequiredService<IEventService>();
+        _service = _scope.ServiceProvider.GetRequiredService<IBookingService>();
+        _context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
     }
 
-    private Guid CreateEvent(int totalSeats = 10)
+    public void Dispose()
     {
-        var evt = _eventService.CreateEvent(
+        _scope.Dispose();
+        _provider.Dispose();
+    }
+
+    private async Task<Guid> CreateEvent(int totalSeats = 10)
+    {
+        var evt = await _eventService.CreateEventAsync(
             "Концерт", null, new DateTime(2026, 12, 1, 10, 0, 0), new DateTime(2026, 12, 1, 12, 0, 0), totalSeats);
         return evt.Id;
+    }
+
+    private async Task UpdateBookingAsync(Guid bookingId, Action<Booking> update)
+    {
+        var booking = await _context.Bookings.Include(item => item.Event).SingleAsync(item => item.Id == bookingId);
+        update(booking);
+        await _context.SaveChangesAsync();
     }
 
     // ---------- Успешные сценарии ----------
@@ -31,7 +49,7 @@ public class BookingServiceTests
     public async Task CreateBookingAsync_ExistingEvent_ReturnsPendingBooking()
     {
         // Arrange
-        var eventId = CreateEvent();
+        var eventId = await CreateEvent();
 
         // Act
         var booking = await _service.CreateBookingAsync(eventId);
@@ -47,7 +65,7 @@ public class BookingServiceTests
     public async Task CreateBookingAsync_SameEventTwice_ReturnsDifferentIds()
     {
         // Arrange
-        var eventId = CreateEvent();
+        var eventId = await CreateEvent();
 
         // Act
         var first = await _service.CreateBookingAsync(eventId);
@@ -61,7 +79,7 @@ public class BookingServiceTests
     public async Task GetBookingByIdAsync_ExistingBooking_ReturnsBooking()
     {
         // Arrange
-        var eventId = CreateEvent();
+        var eventId = await CreateEvent();
         var created = await _service.CreateBookingAsync(eventId);
 
         // Act
@@ -75,9 +93,9 @@ public class BookingServiceTests
     public async Task GetBookingByIdAsync_AfterConfirm_ReturnsConfirmedStatus()
     {
         // Arrange
-        var eventId = CreateEvent();
+        var eventId = await CreateEvent();
         var created = await _service.CreateBookingAsync(eventId);
-        _repository.GetById(created.Id)!.Confirm();
+        await UpdateBookingAsync(created.Id, booking => booking.Confirm());
 
         // Act
         var found = await _service.GetBookingByIdAsync(created.Id);
@@ -91,9 +109,9 @@ public class BookingServiceTests
     public async Task GetBookingByIdAsync_AfterReject_ReturnsRejectedStatus()
     {
         // Arrange
-        var eventId = CreateEvent();
+        var eventId = await CreateEvent();
         var created = await _service.CreateBookingAsync(eventId);
-        _repository.GetById(created.Id)!.Reject();
+        await UpdateBookingAsync(created.Id, booking => booking.Reject());
 
         // Act
         var found = await _service.GetBookingByIdAsync(created.Id);
@@ -119,8 +137,8 @@ public class BookingServiceTests
     public async Task CreateBookingAsync_DeletedEvent_ThrowsNotFound()
     {
         // Arrange
-        var eventId = CreateEvent();
-        _eventService.DeleteEvent(eventId);
+        var eventId = await CreateEvent();
+        await _eventService.DeleteEventAsync(eventId);
 
         // Act & Assert
         await Assert.ThrowsAsync<NotFoundException>(() => _service.CreateBookingAsync(eventId));
@@ -143,20 +161,20 @@ public class BookingServiceTests
     public async Task CreateBookingAsync_ExistingEvent_DecreasesAvailableSeatsByOne()
     {
         // Arrange
-        var eventId = CreateEvent(totalSeats: 5);
+        var eventId = await CreateEvent(totalSeats: 5);
 
         // Act
         await _service.CreateBookingAsync(eventId);
 
         // Assert
-        Assert.Equal(4, _eventService.GetEvent(eventId).AvailableSeats);
+        Assert.Equal(4, (await _eventService.GetEventAsync(eventId)).AvailableSeats);
     }
 
     [Fact]
     public async Task CreateBookingAsync_UpToLimit_AllSucceedWithUniqueIds()
     {
         // Arrange
-        var eventId = CreateEvent(totalSeats: 3);
+        var eventId = await CreateEvent(totalSeats: 3);
 
         // Act
         var first = await _service.CreateBookingAsync(eventId);
@@ -166,14 +184,14 @@ public class BookingServiceTests
         // Assert
         var ids = new[] { first.Id, second.Id, third.Id };
         Assert.Equal(3, ids.Distinct().Count());
-        Assert.Equal(0, _eventService.GetEvent(eventId).AvailableSeats);
+        Assert.Equal(0, (await _eventService.GetEventAsync(eventId)).AvailableSeats);
     }
 
     [Fact]
     public async Task CreateBookingAsync_AfterSeatsExhausted_ThrowsNoAvailableSeats()
     {
         // Arrange
-        var eventId = CreateEvent(totalSeats: 2);
+        var eventId = await CreateEvent(totalSeats: 2);
         await _service.CreateBookingAsync(eventId);
         await _service.CreateBookingAsync(eventId);
 
@@ -185,7 +203,7 @@ public class BookingServiceTests
     public async Task CreateBookingAsync_NoAvailableSeats_ThrowsAndKeepsSeatsAtZero()
     {
         // Arrange
-        var eventId = CreateEvent(totalSeats: 1);
+        var eventId = await CreateEvent(totalSeats: 1);
         await _service.CreateBookingAsync(eventId);
 
         // Act
@@ -193,7 +211,7 @@ public class BookingServiceTests
 
         // Assert
         Assert.Equal("No available seats for this event", ex.Message);
-        Assert.Equal(0, _eventService.GetEvent(eventId).AvailableSeats);
+        Assert.Equal(0, (await _eventService.GetEventAsync(eventId)).AvailableSeats);
     }
 
     // ---------- Отклонение и возврат места ----------
@@ -202,25 +220,31 @@ public class BookingServiceTests
     public async Task RejectAndReleaseSeats_RestoresAvailableSeats()
     {
         // Arrange
-        var eventId = CreateEvent(totalSeats: 1);
+        var eventId = await CreateEvent(totalSeats: 1);
         var created = await _service.CreateBookingAsync(eventId);
 
         // Act
-        _repository.GetById(created.Id)!.Reject();
-        _eventService.GetEvent(eventId).ReleaseSeats();
+        await UpdateBookingAsync(created.Id, booking =>
+        {
+            booking.Reject();
+            booking.Event.ReleaseSeats();
+        });
 
         // Assert
-        Assert.Equal(1, _eventService.GetEvent(eventId).AvailableSeats);
+        Assert.Equal(1, (await _eventService.GetEventAsync(eventId)).AvailableSeats);
     }
 
     [Fact]
     public async Task RejectAndReleaseSeats_AllowsNewBookingForSameSeat()
     {
         // Arrange
-        var eventId = CreateEvent(totalSeats: 1);
+        var eventId = await CreateEvent(totalSeats: 1);
         var created = await _service.CreateBookingAsync(eventId);
-        _repository.GetById(created.Id)!.Reject();
-        _eventService.GetEvent(eventId).ReleaseSeats();
+        await UpdateBookingAsync(created.Id, booking =>
+        {
+            booking.Reject();
+            booking.Event.ReleaseSeats();
+        });
 
         // Act
         var second = await _service.CreateBookingAsync(eventId);
@@ -236,15 +260,17 @@ public class BookingServiceTests
     public async Task CreateBookingAsync_ConcurrentRequests_NoOverbooking()
     {
         // Arrange
-        var eventId = CreateEvent(totalSeats: 5);
+        var eventId = await CreateEvent(totalSeats: 5);
 
         // Act
         var tasks = Enumerable.Range(0, 20)
             .Select(_ => Task.Run(async () =>
             {
+                using var scope = _provider.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<IBookingService>();
                 try
                 {
-                    await _service.CreateBookingAsync(eventId);
+                    await service.CreateBookingAsync(eventId);
                     return true;
                 }
                 catch (NoAvailableSeatsException)
@@ -257,18 +283,23 @@ public class BookingServiceTests
         // Assert
         Assert.Equal(5, results.Count(success => success));
         Assert.Equal(15, results.Count(success => !success));
-        Assert.Equal(0, _eventService.GetEvent(eventId).AvailableSeats);
+        Assert.Equal(0, (await _eventService.GetEventAsync(eventId)).AvailableSeats);
     }
 
     [Fact]
     public async Task CreateBookingAsync_ConcurrentRequests_ReturnUniqueIds()
     {
         // Arrange
-        var eventId = CreateEvent(totalSeats: 10);
+        var eventId = await CreateEvent(totalSeats: 10);
 
         // Act
         var tasks = Enumerable.Range(0, 10)
-            .Select(_ => Task.Run(() => _service.CreateBookingAsync(eventId)));
+            .Select(_ => Task.Run(async () =>
+            {
+                using var scope = _provider.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<IBookingService>();
+                return await service.CreateBookingAsync(eventId);
+            }));
         var bookings = await Task.WhenAll(tasks);
 
         // Assert

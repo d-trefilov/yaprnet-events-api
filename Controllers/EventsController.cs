@@ -1,5 +1,4 @@
-﻿using EventsApi.Dto;
-using EventsApi.Models;
+using EventsApi.Dto;
 using EventsApi.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -11,9 +10,9 @@ namespace EventsApi.Controllers
     public class EventsController(IEventService eventService, IBookingService bookingService) : ControllerBase
     {
         [HttpPost]
-        public IActionResult CreateEvent(Event evt)
+        public async Task<IActionResult> CreateEvent(EventRequest evt, CancellationToken cancellationToken)
         {
-            var evtCreated = eventService.CreateEvent(evt.Title, evt.Description, evt.StartAt, evt.EndAt, evt.TotalSeats);
+            var evtCreated = await eventService.CreateEventAsync(evt.Title, evt.Description, evt.StartAt, evt.EndAt, evt.TotalSeats, cancellationToken);
             return new CreatedResult($"/events/{evtCreated.Id}", evtCreated);
         }
 
@@ -21,43 +20,43 @@ namespace EventsApi.Controllers
         [ProducesResponseType(typeof(BookingInfo), StatusCodes.Status202Accepted)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-        public async Task<IActionResult> BookEvent(Guid id)
+        public async Task<IActionResult> BookEvent(Guid id, CancellationToken cancellationToken)
         {
-            var booking = await bookingService.CreateBookingAsync(id);
+            var booking = await bookingService.CreateBookingAsync(id, cancellationToken);
             return Accepted($"/bookings/{booking.Id}", booking);
         }
 
         [HttpDelete("{id}")]
-        public IActionResult DeleteEvent(Guid id)
+        public async Task<IActionResult> DeleteEvent(Guid id, CancellationToken cancellationToken)
         {
-            eventService.DeleteEvent(id);
+            await eventService.DeleteEventAsync(id, cancellationToken);
 
             return NoContent();
         }
 
         [HttpGet("{id}")]
-        public IActionResult GetEvent(Guid id)
+        public async Task<IActionResult> GetEvent(Guid id, CancellationToken cancellationToken)
         {
-            var evt = eventService.GetEvent(id);
+            var evt = await eventService.GetEventAsync(id, cancellationToken);
 
             return Ok(evt);
         }
 
         [HttpGet]
-        public IActionResult GetEvents(
+        public async Task<IActionResult> GetEvents(
             [FromQuery] string? title, 
             [FromQuery] DateTime? from, 
             [FromQuery] DateTime? to,
-            [FromQuery] int page = 1,
+            CancellationToken cancellationToken, [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
-            return Ok(eventService.GetEvents(title, from, to, page, pageSize));
+            return Ok(await eventService.GetEventsAsync(title, from, to, page, pageSize, cancellationToken));
         }
 
         [HttpPut("{id}")]
-        public IActionResult UpdateEvent(Guid id, Event evt)
+        public async Task<IActionResult> UpdateEvent(Guid id, EventRequest evt, CancellationToken cancellationToken)
         {
-            var evtUpdated = eventService.UpdateEvent(id, evt.Title, evt.Description, evt.StartAt, evt.EndAt);
+            var evtUpdated = await eventService.UpdateEventAsync(id, evt.Title, evt.Description, evt.StartAt, evt.EndAt, cancellationToken);
 
             return Ok(evtUpdated);
         }

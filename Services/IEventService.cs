@@ -1,14 +1,13 @@
-﻿using EventsApi.Models;
+using EventsApi.Models;
 
 namespace EventsApi.Services
 {
     public interface IEventService
     {
-        PaginatedResult<Event> GetEvents(string? title, DateTime? from, DateTime? to, int page, int pageSize);
-        Event GetEvent(Guid id);
-        Event CreateEvent(string title, string? description, DateTime startAt, DateTime endAt, int totalSeats);
-        Event UpdateEvent(Guid id, string title, string? description, DateTime startAt, DateTime endAt);
-        void DeleteEvent(Guid id);
-
+        Task<PaginatedResult<Event>> GetEventsAsync(string? title, DateTime? from, DateTime? to, int page, int pageSize, CancellationToken cancellationToken = default);
+        Task<Event> GetEventAsync(Guid id, CancellationToken cancellationToken = default);
+        Task<Event> CreateEventAsync(string title, string? description, DateTime startAt, DateTime endAt, int totalSeats, CancellationToken cancellationToken = default);
+        Task<Event> UpdateEventAsync(Guid id, string title, string? description, DateTime startAt, DateTime endAt, CancellationToken cancellationToken = default);
+        Task DeleteEventAsync(Guid id, CancellationToken cancellationToken = default);
     }
 }
