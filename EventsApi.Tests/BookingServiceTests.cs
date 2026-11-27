@@ -3,29 +3,30 @@ using EventsApi.Exceptions;
 using EventsApi.Models;
 using EventsApi.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EventsApi.Tests;
 
 public class BookingServiceTests : IDisposable
 {
-    private readonly DbContextOptions<AppDbContext> _options;
+    private readonly ServiceProvider _provider = TestServices.Create();
+    private readonly IServiceScope _scope;
     private readonly IEventService _eventService;
     private readonly IBookingService _service;
     private readonly AppDbContext _context;
 
     public BookingServiceTests()
     {
-        _options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        _context = new AppDbContext(_options);
-        _eventService = new EventService(_context);
-        _service = new BookingService(_context);
+        _scope = _provider.CreateScope();
+        _eventService = _scope.ServiceProvider.GetRequiredService<IEventService>();
+        _service = _scope.ServiceProvider.GetRequiredService<IBookingService>();
+        _context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
     }
 
     public void Dispose()
     {
-        _context.Dispose();
+        _scope.Dispose();
+        _provider.Dispose();
     }
 
     private async Task<Guid> CreateEvent(int totalSeats = 10)
@@ -265,8 +266,8 @@ public class BookingServiceTests : IDisposable
         var tasks = Enumerable.Range(0, 20)
             .Select(_ => Task.Run(async () =>
             {
-                using var context = new AppDbContext(_options);
-                var service = new BookingService(context);
+                using var scope = _provider.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<IBookingService>();
                 try
                 {
                     await service.CreateBookingAsync(eventId);
@@ -295,8 +296,8 @@ public class BookingServiceTests : IDisposable
         var tasks = Enumerable.Range(0, 10)
             .Select(_ => Task.Run(async () =>
             {
-                using var context = new AppDbContext(_options);
-                var service = new BookingService(context);
+                using var scope = _provider.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<IBookingService>();
                 return await service.CreateBookingAsync(eventId);
             }));
         var bookings = await Task.WhenAll(tasks);

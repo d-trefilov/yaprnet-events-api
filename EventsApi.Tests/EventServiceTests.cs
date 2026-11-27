@@ -1,28 +1,26 @@
-using EventsApi.DataAccess;
 using EventsApi.Exceptions;
 using EventsApi.Models;
 using EventsApi.Services;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EventsApi.Tests;
 
 public class EventServiceTests : IDisposable
 {
-    private readonly AppDbContext _context;
+    private readonly ServiceProvider _provider = TestServices.Create();
+    private readonly IServiceScope _scope;
     private readonly IEventService _service;
 
     public EventServiceTests()
     {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        _context = new AppDbContext(options);
-        _service = new EventService(_context);
+        _scope = _provider.CreateScope();
+        _service = _scope.ServiceProvider.GetRequiredService<IEventService>();
     }
 
     public void Dispose()
     {
-        _context.Dispose();
+        _scope.Dispose();
+        _provider.Dispose();
     }
 
     [Fact]
