@@ -52,11 +52,19 @@ namespace EventsApi.Services
         private async Task ProcessBookingAsync(Guid bookingId, CancellationToken stoppingToken)
         {
             logger.LogInformation("Начата обработка брони {BookingId}", bookingId);
-            await Task.Delay(ProcessingDelay, stoppingToken);
-            await SaveResultAsync(bookingId, stoppingToken);
+            try
+            {
+                await Task.Delay(ProcessingDelay, stoppingToken);
+                await SaveResultAsync(bookingId, processingFailed: false, stoppingToken);
+            }
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+            {
+                logger.LogError(ex, "Не удалось обработать бронь {BookingId}", bookingId);
+                await SaveResultAsync(bookingId, processingFailed: true, stoppingToken);
+            }
         }
 
-        private async Task SaveResultAsync(Guid bookingId, CancellationToken stoppingToken)
+        private async Task SaveResultAsync(Guid bookingId, bool processingFailed, CancellationToken stoppingToken)
         {
             await using var scope = scopeFactory.CreateAsyncScope();
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -68,9 +76,11 @@ namespace EventsApi.Services
                     .SingleOrDefaultAsync(booking => booking.Id == bookingId, stoppingToken);
                 if (booking?.Status != BookingStatus.Pending) return;
 
-                if (booking.Event.IsDeleted)
+                if (booking.Event.IsDeleted || processingFailed)
                 {
                     booking.Reject();
+                    if (!booking.Event.IsDeleted)
+                        booking.Event.ReleaseSeats();
                 }
                 else
                 {
